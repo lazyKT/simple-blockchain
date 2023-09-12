@@ -40,7 +40,7 @@ class Block {
         const timestampDifference = timestamp - originalBlock.timestamp;
 
         // difficulty will never be lower than 1
-        if (difficulty < 1) return 1;
+        if (difficulty < 2) return 1;
 
         // lowers the difficulty for a slower mined block, 
         // raises the difficulty for a quickly mined block
