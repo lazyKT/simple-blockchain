@@ -37,8 +37,18 @@ class PubSub {
         }
     }
 
-    publish({ channel, message }) {
+    async publish({ channel, message }) {
+
+       try {
+        // unsubscribe the current channel, to prevent publishing message to itself
+        this.pubnub.unsubscribe({ channels: [channel] });
+        // publish message
         this.pubnub.publish({ channel, message });
+        // subscribe again
+        this.pubnub.subscribe({ channels: [channel] })
+       } catch (err) {
+        console.error('[ERROR] publish message:', err);
+       }
     }
 
     broadcastChain () {

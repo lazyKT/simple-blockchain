@@ -56,6 +56,8 @@ const PORT = PEER_PORT || DEFAULT_PORT;
 
 app.listen(PORT, () => {
     console.log(`app is running at localhost:${PORT}`);
-
-    syncChain();
+    // only sync for the non-root node
+    if (PORT !== DEFAULT_PORT) {
+        syncChain();
+    }
 });
