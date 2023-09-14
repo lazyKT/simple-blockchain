@@ -1,7 +1,7 @@
 const PubNub = require('pubnub');
 const { randomUUID } = require('crypto');
 const credentials = require('./credentials');
-
+const Blockchain = require('./blockchain');
 
 const CHANNELS = {
     TEST: 'TEST',
@@ -14,7 +14,8 @@ class PubSub {
         this.blockchain = blockchain;
         this.pubnub = new PubNub({
             ...credentials,
-            uuid: randomUUID()
+            logVerbosity: true,
+            userId: randomUUID()
         });
 
         this.pubnub.subscribe({ channels: Object.values(CHANNELS) });
@@ -59,5 +60,8 @@ class PubSub {
     }
 }
 
+const blockchain = new Blockchain();
+const pubsub = new PubSub({ blockchain });
+pubsub.publish({ channel: CHANNELS.TEST, message: 'Hello!' });
 
 module.exports = PubSub;

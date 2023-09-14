@@ -2,13 +2,14 @@ const express = require('express');
 const request = require('request');
 const bodyParser = require('body-parser');
 const Blockchain = require('./blockchain');
-const PubSub = require('./pubsub');
+// const PubSub = require('./pubsub');
+const RedisPubSub = require('./redis-pubsub');
 
 const app = express();
 app.use(bodyParser.json());
 
 const blockchain = new Blockchain();
-const pubsub = new PubSub({ blockchain });
+let pubsub = null;
 
 const DEFAULT_PORT = 3000;
 const ROOT_NODE_ADDRESS = `http://localhost:${DEFAULT_PORT}`;
@@ -54,8 +55,9 @@ if (process.env.GENERATE_PEER_PORT === 'true') {
 
 const PORT = PEER_PORT || DEFAULT_PORT;
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
     console.log(`app is running at localhost:${PORT}`);
+    pubsub = await RedisPubSub.builder({ blockchain });
     // only sync for the non-root node
     if (PORT !== DEFAULT_PORT) {
         syncChain();
