@@ -1,5 +1,4 @@
 const { createClient } = require('redis');
-const Blockchain = require('./blockchain');
 
 // (async () => {
 //   const client = createClient();

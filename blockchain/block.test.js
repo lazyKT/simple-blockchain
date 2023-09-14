@@ -1,7 +1,7 @@
 const hextToBinary = require('hex-to-binary');
-const Block = require('./block.js');
-const { GENESIS_DATA, MINE_RATE } = require('./config.js');
-const cryptoHash = require('./crypto-hash.js');
+const Block = require('../blockchain/block');
+const { GENESIS_DATA, MINE_RATE } = require('../config');
+const cryptoHash = require('../utils/crypto-hash.js');
 
 
 describe('Block', () => {
@@ -83,7 +83,7 @@ describe('Adjust difficulty()', () => {
     const hash = 'bar-hash';
     const data = ['blockchain', 'data'];
     const nonce = 1;
-    const difficulty = 1;
+    const difficulty = 3;
     const block = new Block({
         timestamp, lastHash, hash, data, nonce, difficulty
     });
