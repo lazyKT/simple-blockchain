@@ -1,4 +1,5 @@
 const { randomUUID } = require('crypto');
+const { verifySignature } = require('../utils');
 
 class Transaction {
 
@@ -22,6 +23,31 @@ class Transaction {
     input['address'] = senderWallet.publicKey;
     input['signature'] = senderWallet.sign(this.outputMap);
     return input;
+  }
+
+  static validateTransaction (transaction) {
+    const { 
+      input: { address, amount, signature}, 
+      outputMap 
+    } = transaction;
+
+    const outputTotal = Object.values(outputMap).reduce((total, amt) => total + amt);
+    if (amount !== outputTotal) {
+      console.error(`Invalid transaction from ${address}`);
+      return false;
+    }
+
+    const isValidSignature = verifySignature({
+      publicKey: address,
+      data: outputMap,
+      signature
+    });
+    if (!isValidSignature) {
+      console.error(`Invalid signature from ${address}`);
+      return false;
+    }
+
+    return true;
   }
 }
 
