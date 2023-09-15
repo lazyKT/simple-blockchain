@@ -3,7 +3,7 @@ const request = require('request');
 const bodyParser = require('body-parser');
 const Blockchain = require('./blockchain');
 // const PubSub = require('./pubsub');
-const RedisPubSub = require('./redis-pubsub');
+const RedisPubSub = require('./app/redis-pubsub');
 
 const app = express();
 app.use(bodyParser.json());
