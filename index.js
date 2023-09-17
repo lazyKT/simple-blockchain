@@ -4,14 +4,14 @@ const bodyParser = require('body-parser');
 const Blockchain = require('./blockchain');
 const RedisPubSub = require('./app/redis-pubsub');
 const Wallet = require('./wallet');
-const TransactionPoll = require('./wallet/transaction-poll');
+const TransactionPool = require('./wallet/transaction-pool');
 
 const app = express();
 app.use(bodyParser.json());
 
 const blockchain = new Blockchain();
 const wallet = new Wallet();
-const transactionPoll = new TransactionPoll();
+const transactionPool = new TransactionPool();
 let pubsub = null;
 
 const DEFAULT_PORT = 3000;
@@ -26,7 +26,7 @@ app.get('/api/blocks', (req, res) => {
 
 
 app.get('/api/transaction-pool-map', (req, res) => {
-    res.json(transactionPoll.transactionMap);
+    res.json(transactionPool.transactionMap);
 })
 
 
@@ -45,13 +45,13 @@ app.post('/api/transact', (req, res) => {
     try {
         const { amount, recipient } = req.body;
 
-        let transaction = transactionPoll.getTransaction({ inputAddress: wallet.publicKey });
+        let transaction = transactionPool.getTransaction({ inputAddress: wallet.publicKey });
         if (transaction) {
             transaction.update({ senderWallet: wallet, recipient, amount });
         } else {
             transaction = wallet.createTransaction({ recipient, amount });
         }
-        transactionPoll.setTransaction(transaction);
+        transactionPool.setTransaction(transaction);
 
         pubsub.broadcastTransaction(transaction);
 
@@ -78,9 +78,9 @@ const syncWithRootState = () => {
     // sync the response with the current node's transaction pool
     request({ url: `${ROOT_NODE_ADDRESS}/api/transaction-pool-map` }, (error, response, body) => {
         if (!error && response.statusCode === 200) {
-            const transactionPollMap = JSON.parse(body);
+            const transactionPoolMap = JSON.parse(body);
             console.log('replace transaction-pool-map on a sync with', transactionPollMap);
-            transactionPoll.setMap(transactionPollMap);
+            transactionPool.setMap(transactionPoolMap);
         }
     });
 }
