@@ -61,6 +61,10 @@ class Transaction {
 
     return true;
   }
+
+  // static parseTransaction (transactionObj) {
+
+  // }
 }
 
 

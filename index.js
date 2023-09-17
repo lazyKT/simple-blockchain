@@ -25,6 +25,11 @@ app.get('/api/blocks', (req, res) => {
 });
 
 
+app.get('/api/transaction-pool-map', (req, res) => {
+    res.json(transactionPoll.transactionMap);
+})
+
+
 app.post('/api/mine', (req, res) => {
     const { data } = req.body;
 
@@ -40,11 +45,15 @@ app.post('/api/transact', (req, res) => {
     try {
         const { amount, recipient } = req.body;
 
-        const transaction = wallet.createTransaction({ recipient, amount });
-
+        let transaction = transactionPoll.getTransaction({ inputAddress: wallet.publicKey });
+        if (transaction) {
+            transaction.update({ senderWallet: wallet, recipient, amount });
+        } else {
+            transaction = wallet.createTransaction({ recipient, amount });
+        }
         transactionPoll.setTransaction(transaction);
 
-        console.log('transactionPoll', transactionPoll);
+        pubsub.broadcastTransaction(transaction);
 
         res.json({ transaction });
     } catch (error) {
@@ -53,8 +62,8 @@ app.post('/api/transact', (req, res) => {
 });
 
 
-// sync the chain of new nodes with the chain of root node at the server start up
-const syncChain = () => {
+// sync the chain of new nodes with the chain and transaction polls of root node at the server start up
+const syncWithRootState = () => {
     // making request to root node `GET:: /api/blocks`
     // sync the response with the current node's chain
     request({ url: `${ROOT_NODE_ADDRESS}/api/blocks` }, (error, response, body) => {
@@ -64,7 +73,19 @@ const syncChain = () => {
             blockchain.replaceChain(rootChain);
         }
     });
+
+    // making request to root node `GET:: /api/transaction-pool-map`
+    // sync the response with the current node's transaction pool
+    request({ url: `${ROOT_NODE_ADDRESS}/api/transaction-pool-map` }, (error, response, body) => {
+        if (!error && response.statusCode === 200) {
+            const transactionPollMap = JSON.parse(body);
+            console.log('replace transaction-pool-map on a sync with', transactionPollMap);
+            transactionPoll.setMap(transactionPollMap);
+        }
+    });
 }
+
+
 
 
 let PEER_PORT;
@@ -77,9 +98,9 @@ const PORT = PEER_PORT || DEFAULT_PORT;
 
 app.listen(PORT, async () => {
     console.log(`app is running at localhost:${PORT}`);
-    pubsub = await RedisPubSub.builder({ blockchain });
+    pubsub = await RedisPubSub.builder({ blockchain, transactionPoll });
     // only sync for the non-root node
     if (PORT !== DEFAULT_PORT) {
-        syncChain();
+        syncWithRootState();
     }
 });

@@ -1,20 +1,28 @@
 const { createClient } = require('redis');
+const { randomUUID } = require('crypto');
 
 const CHANNELS = {
   TEST: 'TEST',
-  BLOCKCHAIN: 'BLOCKCHAIN'
+  BLOCKCHAIN: 'BLOCKCHAIN',
+  TRANSACTION: 'TRANSACTION'
 };
 
 
 class RedisPubSub {
 
-  constructor ({ blockchain, publisher, subscriber }) {
+  constructor ({ blockchain, transactionPoll, publisher, subscriber, subscriberId }) {
     this.blockchain = blockchain;
+    this.transactionPoll = transactionPoll;
     this.publisher = publisher;
     this.subscriber = subscriber;
+    this.subscriberId = subscriberId;
   }
 
-  static async  builder ({ blockchain }) {
+  static async  builder ({ blockchain, transactionPoll }) {
+
+    // generate subscriber id to prevent processing of self-broadcast messages
+    const subscriberId = randomUUID();
+
     const publisher = createClient();
     publisher.on('error', (err) => console.error(`[publisher-err] ${err}`));
     await publisher.connect();
@@ -22,19 +30,20 @@ class RedisPubSub {
     const subscriber = publisher.duplicate();
     subscriber.on('error', (err) => console.error(`[subscriber-err] ${err}`));
     await subscriber.connect();
-
+    
     for (const ch of Object.values(CHANNELS)) {
       await subscriber.subscribe(ch, (message, channel) => {
-        console.log(`Message received. Channel: ${channel}, Message: ${message}`);
-        // console.log(`\nch === CHANNELS.BLOCKCHAIN && channel === CHANNELS.BLOCKCHAIN: ${ch === CHANNELS.BLOCKCHAIN && channel === CHANNELS.BLOCKCHAIN}`)
-        if (channel === CHANNELS.BLOCKCHAIN) {
-          const chain = JSON.parse(message);
-          blockchain.replaceChain(chain);
+
+        const parsedMessage = JSON.parse(message);
+        if (channel === CHANNELS.BLOCKCHAIN && parsedMessage.subscriberId !== subscriberId) {
+          blockchain.replaceChain(parsedMessage.data);
+        } else if (channel === CHANNELS.TRANSACTION && parsedMessage.subscriberId !== subscriberId) {
+          transactionPoll.setTransaction(parsedMessage.data);
         }
       });
     }
 
-    return new RedisPubSub({ blockchain, publisher, subscriber });
+    return new RedisPubSub({ blockchain, transactionPoll, publisher, subscriber, subscriberId });
   }
 
   async publish (channel, message) {
@@ -42,7 +51,17 @@ class RedisPubSub {
   }
 
   async broadcastChain () {
-    await this.publish(CHANNELS.BLOCKCHAIN, JSON.stringify(this.blockchain.chain));
+    await this.publish(
+      CHANNELS.BLOCKCHAIN, 
+      JSON.stringify({subscriberId: this.subscriberId, data: this.blockchain.chain})
+    );
+  }
+
+  async broadcastTransaction (transaction) {
+    await this.publish(
+      CHANNELS.TRANSACTION, 
+      JSON.stringify({subscriberId: this.subscriberId, data: transaction})
+    );
   }
 }
 
