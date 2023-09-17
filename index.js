@@ -2,13 +2,16 @@ const express = require('express');
 const request = require('request');
 const bodyParser = require('body-parser');
 const Blockchain = require('./blockchain');
-// const PubSub = require('./pubsub');
 const RedisPubSub = require('./app/redis-pubsub');
+const Wallet = require('./wallet');
+const TransactionPoll = require('./wallet/transaction-poll');
 
 const app = express();
 app.use(bodyParser.json());
 
 const blockchain = new Blockchain();
+const wallet = new Wallet();
+const transactionPoll = new TransactionPoll();
 let pubsub = null;
 
 const DEFAULT_PORT = 3000;
@@ -30,6 +33,23 @@ app.post('/api/mine', (req, res) => {
     pubsub.broadcastChain();
 
     res.redirect('/api/blocks');
+});
+
+
+app.post('/api/transact', (req, res) => {
+    try {
+        const { amount, recipient } = req.body;
+
+        const transaction = wallet.createTransaction({ recipient, amount });
+
+        transactionPoll.setTransaction(transaction);
+
+        console.log('transactionPoll', transactionPoll);
+
+        res.json({ transaction });
+    } catch (error) {
+        return res.status(400).json({ type: 'error', message: error.message });
+    }
 });
 
 
