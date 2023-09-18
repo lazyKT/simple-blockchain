@@ -19,7 +19,7 @@ class TransactionPool {
     this.transactionMap = transactionPollMap;
   }
 
-  getValidTranscations () {
+  getValidTransactions () {
     const transactions = Object.values(this.transactionMap);
 
     return transactions.filter((transaction) => {

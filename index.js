@@ -5,6 +5,7 @@ const Blockchain = require('./blockchain');
 const RedisPubSub = require('./app/redis-pubsub');
 const Wallet = require('./wallet');
 const TransactionPool = require('./wallet/transaction-pool');
+const TransactionMiner = require('./app/transaction-miner');
 
 const app = express();
 app.use(bodyParser.json());
@@ -13,6 +14,7 @@ const blockchain = new Blockchain();
 const wallet = new Wallet();
 const transactionPool = new TransactionPool();
 let pubsub = null;
+let transactionMiner = null;
 
 const DEFAULT_PORT = 3000;
 const ROOT_NODE_ADDRESS = `http://localhost:${DEFAULT_PORT}`;
@@ -27,7 +29,16 @@ app.get('/api/blocks', (req, res) => {
 
 app.get('/api/transaction-pool-map', (req, res) => {
     res.json(transactionPool.transactionMap);
-})
+});
+
+
+app.get('/api/mine-transactions', (_, res) => {
+    if (transactionMiner == null) {
+        return res.status(500).json({ type: 'error', message: 'transactionMiner instance is null' });
+    }
+    transactionMiner.mineTransactions();
+    res.redirect('/api/blocks');
+});
 
 
 app.post('/api/mine', (req, res) => {
@@ -79,7 +90,7 @@ const syncWithRootState = () => {
     request({ url: `${ROOT_NODE_ADDRESS}/api/transaction-pool-map` }, (error, response, body) => {
         if (!error && response.statusCode === 200) {
             const transactionPoolMap = JSON.parse(body);
-            console.log('replace transaction-pool-map on a sync with', transactionPollMap);
+            console.log('replace transaction-pool-map on a sync with', transactionPoolMap);
             transactionPool.setMap(transactionPoolMap);
         }
     });
@@ -98,7 +109,10 @@ const PORT = PEER_PORT || DEFAULT_PORT;
 
 app.listen(PORT, async () => {
     console.log(`app is running at localhost:${PORT}`);
-    pubsub = await RedisPubSub.builder({ blockchain, transactionPoll });
+    pubsub = await RedisPubSub.builder({ blockchain, transactionPool });
+    transactionMiner = new TransactionMiner({
+        blockchain, transactionPool, wallet, pubsub
+    });
     // only sync for the non-root node
     if (PORT !== DEFAULT_PORT) {
         syncWithRootState();

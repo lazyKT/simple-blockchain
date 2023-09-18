@@ -63,11 +63,11 @@ describe('TransactionPool', () => {
     });
 
     it('return the valid `transactions`', () => {
-      expect(transactionPool.getValidTranscations()).toEqual(validTransactions);
+      expect(transactionPool.getValidTransactions()).toEqual(validTransactions);
     });
 
     it('logs errors for the invalid transactions', () => {
-      transactionPool.getValidTranscations();
+      transactionPool.getValidTransactions();
       expect(errorMock).toHaveBeenCalled();
     });
   });

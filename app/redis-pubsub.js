@@ -10,15 +10,15 @@ const CHANNELS = {
 
 class RedisPubSub {
 
-  constructor ({ blockchain, transactionPoll, publisher, subscriber, subscriberId }) {
+  constructor ({ blockchain, transactionPool, publisher, subscriber, subscriberId }) {
     this.blockchain = blockchain;
-    this.transactionPoll = transactionPoll;
+    this.transactionPool = transactionPool;
     this.publisher = publisher;
     this.subscriber = subscriber;
     this.subscriberId = subscriberId;
   }
 
-  static async  builder ({ blockchain, transactionPoll }) {
+  static async  builder ({ blockchain, transactionPool }) {
 
     // generate subscriber id to prevent processing of self-broadcast messages
     const subscriberId = randomUUID();
@@ -33,17 +33,23 @@ class RedisPubSub {
     
     for (const ch of Object.values(CHANNELS)) {
       await subscriber.subscribe(ch, (message, channel) => {
-
-        const parsedMessage = JSON.parse(message);
-        if (channel === CHANNELS.BLOCKCHAIN && parsedMessage.subscriberId !== subscriberId) {
-          blockchain.replaceChain(parsedMessage.data);
-        } else if (channel === CHANNELS.TRANSACTION && parsedMessage.subscriberId !== subscriberId) {
-          transactionPoll.setTransaction(parsedMessage.data);
-        }
+        this.processMessages(channel, message, blockchain, transactionPool, subscriberId);
       });
     }
 
-    return new RedisPubSub({ blockchain, transactionPoll, publisher, subscriber, subscriberId });
+    return new RedisPubSub({ blockchain, transactionPool, publisher, subscriber, subscriberId });
+  }
+
+  static processMessages (channel, message, blockchain, transactionPool, subscriberId) {
+    const parsedMessage = JSON.parse(message);
+    if (channel === CHANNELS.BLOCKCHAIN && parsedMessage.subscriberId !== subscriberId) {
+      const chain = parsedMessage.data;
+      blockchain.replaceChain(chain, () => {
+        transactionPool.clearBlockchainTransactions({ chain });
+      });
+    } else if (channel === CHANNELS.TRANSACTION && parsedMessage.subscriberId !== subscriberId) {
+      transactionPool.setTransaction(parsedMessage.data);
+    }
   }
 
   async publish (channel, message) {
