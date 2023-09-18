@@ -44,7 +44,7 @@ class RedisPubSub {
     const parsedMessage = JSON.parse(message);
     if (channel === CHANNELS.BLOCKCHAIN && parsedMessage.subscriberId !== subscriberId) {
       const chain = parsedMessage.data;
-      blockchain.replaceChain(chain, () => {
+      blockchain.replaceChain(chain, true, () => {
         transactionPool.clearBlockchainTransactions({ chain });
       });
     } else if (channel === CHANNELS.TRANSACTION && parsedMessage.subscriberId !== subscriberId) {

@@ -1,6 +1,8 @@
 const Blockchain = require('../blockchain');
 const Block = require('./block');
 const { cryptoHash } = require('../utils');
+const Wallet = require('../wallet/index');
+const Transaction = require('../wallet/transaction');
 
 
 describe('Blockchain', () => {
@@ -133,5 +135,98 @@ describe('Blockchain Replacement', () => {
             blockchain.replaceChain(newChain.chain);
             expect(blockchain.chain).toEqual(newChain.chain);
         });
+
+        it('the `validTransactionData` flag is true', () => {
+            const validTransactionDataMockFn = jest.fn();
+            blockchain.validTransactionData = validTransactionDataMockFn;
+            blockchain.replaceChain(newChain.chain, true);
+            expect(validTransactionDataMockFn).toHaveBeenCalled();
+        });
     })
+});
+
+
+describe('validTransactionData()', () => {
+    let transaction, rewardTransaction, wallet;
+    let blockchain, newChain;
+
+    beforeEach(() => {
+        blockchain = new Blockchain();
+        newChain = new Blockchain();
+        wallet = new Wallet();
+        transaction = wallet.createTransaction({ recipient: 'foo', amount: 65 });
+        rewardTransaction = Transaction.rewardTransaction({ minerWallet: wallet });
+    });
+
+    it('the transaction data is valid', () => {
+        newChain.addBlock({ data: [transaction, rewardTransaction] });
+
+        const isValidData = blockchain.validTransactionData({ chain: newChain.chain });
+
+        expect(isValidData).toBeTruthy();
+    });
+
+    it('the transaction data has multiple rewards', () => {
+        newChain.addBlock({ data: [transaction, rewardTransaction, rewardTransaction] });
+
+        const isValidData = blockchain.validTransactionData({ chain: newChain.chain });
+
+        expect(isValidData).toBeFalsy();
+    });
+
+    describe('the transaction data has at least of one malformed outputMap', () => {
+        it('transaction is not a reward transaction', () => {
+            transaction.outputMap[wallet.publicKey] = 999999;
+
+            newChain.addBlock({ data: [transaction, rewardTransaction] });
+
+            const isValidData = blockchain.validTransactionData({ chain: newChain.chain });
+
+            expect(isValidData).toBeFalsy();
+        });
+
+        it('transaction is a reward transaction', () => {
+            rewardTransaction.outputMap[wallet.publicKey] = 999999;
+
+            newChain.addBlock({ data: [transaction, rewardTransaction ] });
+
+            const isValidData = blockchain.validTransactionData({ chain: newChain.chain });
+
+            expect(isValidData).toBeFalsy();
+        });
+    });
+
+    it('the transaction data has at least one malformed input', () => {
+        wallet.balance = 9000;
+
+        const evilOutputMap = {
+            [wallet.publicKey]: 8900,
+            fooRecipient: 100
+        };
+
+        const evilTransaction = {
+            input: {
+                timestamp: Date.now(),
+                amount: wallet.balance,
+                address: wallet.publicKey,
+                signature: wallet.sign(evilOutputMap)
+            },
+            outputMap: evilOutputMap
+        };
+
+        newChain.addBlock({ data: [evilTransaction, rewardTransaction] });
+
+        const isValidData = blockchain.validTransactionData({ chain: newChain.chain });
+
+        expect(isValidData).toBeFalsy();
+    });
+
+    it('a block contains multiple identical transactions', () => {
+        newChain.addBlock({
+            data: [transaction, transaction, transaction]
+        });
+        const isValidData = blockchain.validTransactionData({ chain: newChain.chain });
+
+        expect(isValidData).toBeFalsy();
+    });
 });
